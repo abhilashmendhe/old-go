@@ -1,0 +1,5 @@
+1)  Below command will help you to import packages and all
+go env -w GO111MODULE=off
+
+set GOPATH=D:\go
+
