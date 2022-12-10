@@ -1,31 +1,52 @@
 package main
 
 import (
-	"fmt"
-	"io/ioutil"
+	"Youtube/NicJackson/Microservices/handlers"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
+	"golang.org/x/net/context"
 )
 
 func main() {
 
-	http.HandleFunc("/", func(rw http.ResponseWriter, r *http.Request) {
-		log.Println("Hello, World")
-		d, err := ioutil.ReadAll(r.Body) // will return some data and err. from user
+	l := log.New(os.Stdout, "product-api: ", log.LstdFlags)
+	// injecting the above log to below handlers
+	hh := handlers.NewHello(l)
+	gh := handlers.NewGoodbye(l)
 
+	// now we want to regiester our handler
+	sm := http.NewServeMux()
+	sm.Handle("/", hh)
+	sm.Handle("/goodbye", gh)
+
+	// we will manually create our http server.. below is our custom http server
+	s := &http.Server{
+		Addr:         ":9090",
+		Handler:      sm,
+		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
+	}
+
+	// now gracefull shutdown.... if you do db transaction or downloading large file.. we need to do gracefully...
+	go func() {
+		err := s.ListenAndServe()
 		if err != nil {
-			http.Error(rw, "Ooops", http.StatusBadRequest)
-			// rw.WriteHeader(http.StatusBadRequest)
-			// rw.Write([]byte("Ooops"))
-			return
+			log.Fatal(err)
 		}
-		log.Printf("Data %s\n", d)
+	}()
 
-		fmt.Fprintf(rw, "Hello %s\n", d)
-	})
+	sigch := make(chan os.Signal)
+	signal.Notify(sigch, os.Interrupt)
+	signal.Notify(sigch, os.Kill)
 
-	http.HandleFunc("/goodbye", func(http.ResponseWriter, *http.Request) {
-		log.Println("Bye bye, World")
-	})
-	http.ListenAndServe(":9090", nil)
+	sig := <-sigch
+	l.Println("Received terminate, graceful shutdown", sig)
+
+	tc, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	s.Shutdown(tc)
 }

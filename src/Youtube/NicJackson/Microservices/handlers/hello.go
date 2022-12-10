@@ -12,11 +12,12 @@ type Hello struct {
 }
 
 func NewHello(l *log.Logger) *Hello {
-	return &Hello{}
+	return &Hello{l}
 }
 
 func (h *Hello) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	log.Println("Hello, World")
+	h.l.Println("Hello, World")
+
 	d, err := ioutil.ReadAll(r.Body) // will return some data and err. from user
 	if err != nil {
 		http.Error(rw, "Ooops", http.StatusBadRequest)
